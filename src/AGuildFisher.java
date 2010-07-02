@@ -24,11 +24,27 @@ import org.rsbot.script.wrappers.RSNPC;
 import org.rsbot.script.wrappers.RSObject;
 import org.rsbot.script.wrappers.RSTile;
 
-@ScriptManifest(authors = { "Allometry" }, category = "Fishing", name = "A. Guild Fisher", version = 0.1, description = "")
+@ScriptManifest(authors = { "Allometry" }, category = "Fishing", name = "A. Guild Fisher", version = 0.1, description = "" +
+		"<html>" +
+		"<head>" +
+		"</head>" +
+		"<body>" +
+		"<div style=\"text-align: center;\">" +
+		"<label for=\"fishType\">I'd like to fish:</label>" +
+		"<select name=\"fishType\" id=\"fishType\">" +
+		"<option value=\"312\">Lobster</option>" +
+		"<option value=\"312\">Swordfish</option>" +
+		"<option value=\"313\">Shark</option>" +
+		"</select>" +
+		"</div>" +
+		"</body>" +
+		"</html>")
 public class AGuildFisher extends Script implements PaintListener, ServerMessageListener {	
-	private int npcShark = 313, fishCaught = 0; //npcLobsterSwordfish = 312
-	private int regularHarpoon = 311, sacredClayHarpoon = 311, barbTailHarpoon = 311;
+	private int npcShark = 313, npcLobsterSwordfish = 312, npcFish = 0, fishCaught = 0;
+	private int lobsterPot = 301, regularHarpoon = 311, sacredClayHarpoon = 311, barbTailHarpoon = 10129;
 	private long startTime = 0;
+	
+	private String actionAtNPC = "";
 	
 	private RSArea northDockArea = new RSArea(new RSTile(2598, 3419), new RSTile(2605, 3426));
 	private RSArea guildBankArea = new RSArea(new RSTile(2585, 3420), new RSTile(2587, 3424));
@@ -48,7 +64,30 @@ public class AGuildFisher extends Script implements PaintListener, ServerMessage
 			basketImage = ImageIO.read(new URL("http://scripts.allometry.com/icons/basket.png"));
 			clockImage = ImageIO.read(new URL("http://scripts.allometry.com/icons/clock.png"));
 		} catch (Exception ignoredException) {}
+			
+		final String fishType = args.get("fishType");
 		
+		if(fishType.contains("Lobster")) {
+			npcFish = npcLobsterSwordfish;
+			actionAtNPC = "Cage";
+		}
+		
+		if(fishType.contains("Swordfish")) {
+			npcFish = npcLobsterSwordfish;
+			actionAtNPC = "Harpoon";
+		}
+		
+		if(fishType.contains("Shark")) {
+			npcFish = npcShark;
+			actionAtNPC = "Harpoon";
+		}
+		
+		if(npcFish == 0 && actionAtNPC == "") {
+			log("Invalid arguments, exiting...");
+			return false;
+		}
+			
+				
 		startTime = System.currentTimeMillis();
 		
 		return true;
@@ -88,7 +127,7 @@ public class AGuildFisher extends Script implements PaintListener, ServerMessage
 			}
 			
 			if(getNPCAt(currentFishingTile) != null) {
-				if(getNPCAt(currentFishingTile).getID() != npcShark) {
+				if(getNPCAt(currentFishingTile).getID() != npcFish) {
 					findFishingHole();
 					log("Object doesn't match required ID, finding new spot");	
 				}
@@ -117,7 +156,7 @@ public class AGuildFisher extends Script implements PaintListener, ServerMessage
 		
 		try {
 			while(!areaFound) {
-				currentFishingNPC = getNearestNPCByID(npcShark);
+				currentFishingNPC = getNearestNPCByID(npcFish);
 				if(northDockArea.contains(currentFishingNPC.getLocation())) areaFound = true;
 			}
 			
@@ -128,10 +167,12 @@ public class AGuildFisher extends Script implements PaintListener, ServerMessage
 	
 	@Override
 	public int loop() {
+		if(!isLoggedIn()) return 1;
+		
 		if(northDockArea.contains(getLocation())) {
 			fishingHoleMonitor();
 			
-			if(getNPCInArea(northDockArea, npcShark) == null) {
+			if(getNPCInArea(northDockArea, npcFish) == null) {
 				walkTileMM(northDockArea.getRandomTile());
 				
 				return 1500;
@@ -140,7 +181,8 @@ public class AGuildFisher extends Script implements PaintListener, ServerMessage
 		
 		if((isIdle() && !isInventoryFull()) && northDockArea.contains(getLocation()) || changedFishingTile) {
 			setCameraRotation(getAngleToTile(currentFishingTile) * 2);
-			atNPC(currentFishingNPC, "Harpoon", true);
+			walkTo(currentFishingTile);
+			atNPC(currentFishingNPC, actionAtNPC, true);
 			changedFishingTile = false;
 			return 3000;
 		}
@@ -164,7 +206,7 @@ public class AGuildFisher extends Script implements PaintListener, ServerMessage
 					return 1500;
 				}
 			} else {
-				bank.depositAllExcept(regularHarpoon, sacredClayHarpoon, barbTailHarpoon);
+				bank.depositAllExcept(lobsterPot, regularHarpoon, sacredClayHarpoon, barbTailHarpoon);
 				bank.close();
 				return 2000;
 			}
